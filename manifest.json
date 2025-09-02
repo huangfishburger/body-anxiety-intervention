@@ -1,0 +1,31 @@
+{
+    "manifest_version": 3,
+    "name": "A pet extension",
+    "version": "1.0",
+    "content_scripts": [
+      {
+        "matches": ["*://www.instagram.com/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["assets/*"],
+        "matches": ["<all_urls>"]
+      }
+    ],
+    "action": {
+      "default_icon": {
+        "16": "assets/pet_extension.png",
+        "32": "assets/pet_extension.png",
+        "48": "assets/pet_extension.png",
+        "128": "assets/pet_extension.png"
+      }
+    },
+    "icons": {
+      "16": "assets/pet_extension.png",
+      "32": "assets/pet_extension.png",
+      "48": "assets/pet_extension.png",
+      "128": "assets/pet_extension.png"
+    }
+  }
