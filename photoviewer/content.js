@@ -127,7 +127,7 @@ function extractImageUrls() {
       if (
         src &&
         src.startsWith('https://') &&
-        src.includes('fbcdn.net') &&
+        (src.includes('cdninstagram.com') || src.includes('fbcdn.net')) &&
         src.includes('t51.2885-15') && // Post images
         !src.includes('t51.2885-19') && // Exclude profile pictures
         !src.includes('profile_pic') &&
