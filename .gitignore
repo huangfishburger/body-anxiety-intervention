@@ -40,3 +40,12 @@ desktop.ini
 *.pth
 *.h5
 *.onnx
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+!*_template.ipynb
+
+# output files
+*.csv
+*.xlsx
