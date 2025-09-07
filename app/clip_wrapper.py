@@ -41,8 +41,18 @@ def predict_probs_from_url(
     Returns:
         dict: 包含預測結果的字典
     """
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/116.0 Safari/537.36"
+        ),
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Referer": image_url.split("/")[0] + "//" + image_url.split("/")[2]  # 自動帶 domain 當 referer
+    }
+
     try:
-        r = requests.get(image_url, timeout=timeout)
+        r = requests.get(image_url, headers=headers, timeout=timeout)
         r.raise_for_status()
         image = Image.open(BytesIO(r.content)).convert("RGB")
     except Exception as e:
