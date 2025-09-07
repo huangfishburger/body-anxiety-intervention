@@ -6,29 +6,25 @@ The analysis detects potentially body-image–related content, and the system ca
 ## 🚀 Getting Started
 
 ### Install uv
-```bash
-# macOS / Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows (PowerShell)
-irm https://astral.sh/uv/install.ps1 | iex
-```
+Follow the official installation guide:  
+👉 [https://docs.astral.sh/uv/getting-started/installation/#installation-methods](https://docs.astral.sh/uv/getting-started/installation/)
 
 ### Install dependencies
 ```bash
-uv python install 3.12   # install Python 3.12 if not available
-uv python pin 3.12       # pin the project to Python 3.12
-uv sync                  # create venv and install dependencies
+# If you don't have Python 3.10–3.12 installed, run:
+# uv python install 3.12
+uv sync
 ```
 
 ## 🧪 Prompt Evaluation
 To evaluate prompts, make a copy of the provided Jupyter notebook and run it:
 
 ```bash
+cd prompt_evaluation
 cp evaluation_template.ipynb [your_file_name].ipynb
 ```
 
-Open `[your_file_name].ipynb` in Jupyter or VSCode and execute the cells to test with different prompt pairs. 
+Open `[your_file_name].ipynb` and execute the cells to test with different prompt pairs. 
 
 
 ## ▶️ Run the App
@@ -45,4 +41,4 @@ Swagger Docs: http://localhost:8000/docs
 2. Enable **Developer Mode**
 3. Click **Load unpacked** and select the extension folder (photoviewer).
 4. Open Instagram and start scrolling → the floating window will show detected image URLs.
-5. URLs are sent to the backend for CLIP analysis and may trigger intervention mechanisms (TODO).
+5. URLs are sent to the backend for CLIP analysis and may trigger intervention mechanisms [TODO].
