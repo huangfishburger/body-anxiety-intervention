@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Model files
+*.pt
+*.pth
+*.h5
+*.onnx
