@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Instagram Positivity Booster",
+  "version": "1.0",
+  "description": "Replace or insert posts with uplifting pet photos on Instagram.",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://www.instagram.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.instagram.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["images/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
