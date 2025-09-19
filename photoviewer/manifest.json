@@ -1,17 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "Instagram Image URL Extractor",
-  "version": "1.9",
-  "description": "Extracts URLs of currently visible Instagram post images, excluding ads and hidden carousel images, with immediate updates on scroll.",
-  "permissions": ["storage", "activeTab"],
+  "name": "Instagram Image Evaluator",
+  "version": "1.0",
+  "description": "Collect visible Instagram post image URLs, send to backend /evaluate, and display results in a floating panel.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*"],
       "js": ["content.js"],
-      "css": ["styles.css"]
+      "run_at": "document_idle"
     }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
+  ]
 }
