@@ -1,42 +1,22 @@
-// background.js
 const API_BASE = "http://localhost:8000";
 
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.action !== "sendImageUrls") return;
-  const tabId = sender?.tab?.id;
-  if (!Array.isArray(msg.urls) || msg.urls.length === 0 || !tabId) return;
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'sendImageUrls') {
+    console.log('Sending image URLs to backend:', message.urls);
+    const urls = Array.from(new Set(message.urls || [])).slice(0, 20); // 先設一次最多 20 張
+    if (urls.length === 0) return;
 
-  // 去重 + 限流（最多 20 張）
-  const urls = Array.from(new Set(msg.urls)).slice(0, 20);
-  console.log("Sending to /evaluate:", urls);
-
-  fetch(`${API_BASE}/evaluate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      urls,
-      agg: "max_pos",
-      weight_key: "diff",
-      combine: "max",
-      timeout: 8
+    fetch(`${API_BASE}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ urls })
     })
-  })
-    .then((r) => r.json())
-    .then((data) => {
-      console.log("[/evaluate] result:", data);
-      // 把結果傳回 content.js 顯示
-      chrome.tabs.sendMessage(tabId, {
-        action: "evaluateResult",
-        results: data // [{ url, final_prob, ... }]
-      });
+    .then(res => res.json())
+    .then(data => {
+      console.log('Analyze result:', data);
     })
-    .catch((err) => {
-      console.error("Evaluate error:", err);
-      // 回報錯誤給 content.js（可選）
-      chrome.tabs.sendMessage(tabId, {
-        action: "evaluateResult",
-        results: [],
-        error: String(err)
-      });
+    .catch(err => {
+      console.error('Analyze error:', err);
     });
+  }
 });
