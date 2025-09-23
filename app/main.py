@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from app.clip_wrapper import load_clip_model, predict_probs_from_url
+from app.logic import evaluate_image
+from app.window import push_and_decide, snapshot, MIN_PROB, THRESHOLD
 
 # logger = logging.getLogger("uvicorn.error")
 logging.basicConfig(
@@ -27,17 +29,120 @@ app.add_middleware(
 
 # 啟動時載入模型
 model, preprocess, device = load_clip_model()
-DEFAULT_PROMPTS = ["a normal woman", "a woman showing her perfect body"]
 
+# ---------- Schemas ----------
 class AnalyzeReq(BaseModel):
     urls: List[str]
-    prompts: Optional[List[str]] = None
+    prompts: Optional[List[str]] = None     # 不給就用 clip_wrapper 的內建/或你自己在呼叫時傳
+    timeout: int = 8
+
+
+class EvalReq(BaseModel):
+    urls: List[str]
+    agg: str = "max_pos"                    # max_pos | max_gap | weighted_pos | weighted_gap
+    weight_key: str = "diff"                # 加權模式下的權重欄位
+    combine: str = "max"                    # FF 與 BE 合併：'max' 或 'mean'
+    timeout: int = 8
+
+# ---------- Endpoints ----------
 
 @app.post("/analyze")
 def analyze(req: AnalyzeReq):
-    prompts = req.prompts or DEFAULT_PROMPTS
-    results = [
-        predict_probs_from_url(u, model, preprocess, device, prompts)
-        for u in req.urls
-    ]
-    return {"prompts": prompts, "results": results}
+    """
+    純 CLIP 機率：對每張圖跑一次 predict_probs_from_url，回傳每個 prompt 的 softmax 機率。
+    回傳格式（單筆）：
+      { "url": "...", "scores": { "<prompt>": 0.12, ... } }
+    """
+    results = []
+    for u in req.urls:
+        try:
+            DEFAULT_PROMPTS = ["a normal woman", "a woman showing her perfect body"]
+            prompts = req.prompts or DEFAULT_PROMPTS
+            res = predict_probs_from_url(
+                u, model, preprocess, device,
+                prompts, timeout=req.timeout
+            )
+            # 預期 res = {"scores": {...}}，若下載或推論失敗會帶 "error"
+            res_out = {"url": u}
+            res_out.update(res)
+            results.append(res_out)
+        except Exception as e:
+            results.append({"url": u, "error": str(e)})
+    return results
+
+@app.post("/evaluate")
+def evaluate(req: EvalReq):
+    """
+    走 logic.py 的完整規則，輸出單一機率 final_prob 與詳細過程（FF/BE 兩面向）。
+    回傳格式（單筆）：
+      {
+        "url": "...",
+        "final_prob": 0.xx,
+        "form_fitting": {...},
+        "body_exposure": {...},
+        "ff_value": ...,
+        "be_value": ...,
+        "agg": "...",
+        "combine": "...",
+        "thresholds": {...}
+      }
+    """
+    out = []
+    for u in req.urls:
+        try:
+            r = evaluate_image(
+                u, model, preprocess, device,
+                timeout=req.timeout,
+                agg=req.agg,
+                weight_key=req.weight_key,
+                combine=req.combine
+            )
+            out.append(r)
+        except Exception as e:
+            out.append({"url": u, "error": str(e)})
+    return out
+
+@app.post("/evaluate_with_window")
+def evaluate(req: EvalReq):
+    """
+    維持 /evaluate 的回傳格式，再多回傳：
+      - window: 最近 5 個 final_prob
+      - cumulative: 只加 > min_prob 的總和
+      - intervention: cumulative > threshold
+    正式版會改成只回傳 intervention
+    """
+    out = []
+    for u in req.urls:
+        try:
+            r = evaluate_image(
+                u, model, preprocess, device,
+                timeout=req.timeout,
+                agg=req.agg,
+                weight_key=req.weight_key,
+                combine=req.combine
+            )
+            fp = r.get("final_prob", None)
+
+            if fp is None:
+                raise ValueError("final_prob missing")
+            
+            window_list, cumulative, intervention = push_and_decide(fp)
+            
+            r["window"] = window_list
+            r["cumulative"] = cumulative
+            r["intervention"] = intervention
+            out.append(r)
+
+        except Exception as e:
+            # 失敗：回傳現狀
+            window_list = snapshot()
+            cumulative = sum(x for x in window_list if x > MIN_PROB)
+            intervention = cumulative > THRESHOLD
+            out.append({
+                "url": u,
+                "error": str(e),
+                "window": window_list,
+                "cumulative": cumulative,
+                "intervention": intervention
+            })
+    return out

@@ -49,3 +49,6 @@ desktop.ini
 # output files
 *.csv
 *.xlsx
+
+# cache files
+.cache/

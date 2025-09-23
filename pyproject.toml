@@ -20,3 +20,8 @@ dependencies = [
 
 [tool.uv.sources]
 clip = { git = "https://github.com/openai/CLIP.git" }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
