@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from app.clip_wrapper import load_clip_model, predict_probs_from_url
 from app.logic import evaluate_image
+from app.window import push_and_decide, snapshot, MIN_PROB, THRESHOLD
 
 # logger = logging.getLogger("uvicorn.error")
 logging.basicConfig(
@@ -99,4 +100,49 @@ def evaluate(req: EvalReq):
             out.append(r)
         except Exception as e:
             out.append({"url": u, "error": str(e)})
+    return out
+
+@app.post("/evaluate_with_window")
+def evaluate(req: EvalReq):
+    """
+    維持 /evaluate 的回傳格式，再多回傳：
+      - window: 最近 5 個 final_prob
+      - cumulative: 只加 > min_prob 的總和
+      - intervention: cumulative > threshold
+    正式版會改成只回傳 intervention
+    """
+    out = []
+    for u in req.urls:
+        try:
+            r = evaluate_image(
+                u, model, preprocess, device,
+                timeout=req.timeout,
+                agg=req.agg,
+                weight_key=req.weight_key,
+                combine=req.combine
+            )
+            fp = r.get("final_prob", None)
+
+            if fp is None:
+                raise ValueError("final_prob missing")
+            
+            window_list, cumulative, intervention = push_and_decide(fp)
+            
+            r["window"] = window_list
+            r["cumulative"] = cumulative
+            r["intervention"] = intervention
+            out.append(r)
+
+        except Exception as e:
+            # 失敗：回傳現狀
+            window_list = snapshot()
+            cumulative = sum(x for x in window_list if x > MIN_PROB)
+            intervention = cumulative > THRESHOLD
+            out.append({
+                "url": u,
+                "error": str(e),
+                "window": window_list,
+                "cumulative": cumulative,
+                "intervention": intervention
+            })
     return out
