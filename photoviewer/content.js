@@ -1,3 +1,10 @@
+/*
+----------------------
+ instagram crawler
+ ----------------------
+*/
+
+
 let imageUrls = new Set();
 let debounceTimeout = null;
 let lastProcessedUrls = new Set(); // Cache for incremental updates
@@ -109,13 +116,19 @@ function isVisible(element) {
   return style.display !== 'none' && style.opacity !== '0' && style.visibility !== 'hidden';
 }
 
+let intervention = false;
 // Extract visible post image URLs
 function extractImageUrls() {
   console.log('Extracting visible post image URLs...');
   const newUrls = new Set();
 
   // Only scan visible articles
-  const articles = Array.from(document.querySelectorAll('article')).filter(article => isInViewport(article));
+  const articles = Array.from(document.querySelectorAll('article'))
+    .filter(article => 
+      !article.dataset.fakePost &&  // ← 排除假貼文本身
+      !article.dataset.fakeInserted &&  // ← 排除已插入假貼文的文章
+      isInViewport(article)
+    );
   articles.forEach(article => {
     // Skip sponsored posts
     if (article.querySelector('[class*="sponsored"], [data-ad-id]') || article.innerHTML.includes('Sponsored')) {
@@ -145,13 +158,22 @@ function extractImageUrls() {
     imageUrls = newUrls;
     console.log('Found visible URLs:', [...imageUrls]);
     updateFloatingWindow([...imageUrls]);
-    chrome.runtime.sendMessage({
-      action: 'sendImageUrls',
-      urls: [...imageUrls]
+    chrome.runtime.sendMessage({ action: 'sendImageUrls', urls: [...imageUrls] }, (response) => {
+      if (Array.isArray(response)) {
+        intervention = response.some(item => item.intervention === true);
+        console.log('intervention', intervention);
+        if (intervention) {
+          insertFakePost();
+          intervention = false;
+        } else {
+          console.log('機率未達，未插入假貼文');
+        }
+      };
     });
   }
 }
 
+let isInsertingFakePost = false;
 // Observe changes in post container and scroll events
 function observePosts() {
   const target = document.querySelector('main[role="main"] div[role="feed"]') ||
@@ -160,6 +182,10 @@ function observePosts() {
                 document.body;
   console.log('Observing target:', target.tagName, target.className);
   const observer = new MutationObserver(debounce(() => {
+    if (isInsertingFakePost) {
+      console.log('正在插入假貼文，忽略 MutationObserver');
+      return;
+    }
     console.log('MutationObserver triggered');
     extractImageUrls();
   }, 50));
@@ -198,4 +224,109 @@ try {
   console.error('Plugin error:', error);
   const urlList = document.getElementById('url-list');
   urlList.innerHTML = '<div>Error: Failed to load URLs. Check console for details.</div>';
+}
+
+
+/*
+----------------------
+ intervention fake posts
+ ----------------------
+*/
+
+
+const fakePosts = [
+  {
+    username: "@dog_on_a_trip",
+    caption: "開車兜風 ❤️🚗✨",
+    image: chrome.runtime.getURL("images/icon1.png")
+  },
+  {
+    username: "@chill_cat",
+    caption: "午睡時光 💤☀️",
+    image: chrome.runtime.getURL("images/icon2.png")
+  },
+  {
+    username: "@abcd_eat",
+    caption: `什麼！星期一了😱
+              嘿嘿好險我只是可愛狗勾不用上班的
+              就讓再我多睡一點吧😴😴😴`,
+    image: chrome.runtime.getURL("images/icon3.png")
+  },
+];
+
+
+function createFakePost({ username, caption, image }) {
+  const post = document.createElement('article');
+  post.classList.add('fake-inserted');
+  post.style = `
+      max-width: 470px;
+      width: 100%;
+      margin: 0 auto 24px;
+      border: 1px solid #dbdbdb;
+      border-radius: 3px;
+      background-color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      min-height: 300px;
+    `;
+    post.innerHTML = `
+      <header style="display: flex; align-items: center; padding: 14px;">
+        <img src="${image}" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+        <strong>${username}</strong>
+      </header>
+      <img src="${image}" style="width: 100%; display: block;">
+      <div style="padding: 10px;">
+        <p><strong>${username}</strong> ${caption}</p>
+      </div>
+    `;
+  return post;
+}
+
+function insertAfter(newNode, referenceNode) {
+  if (referenceNode.parentNode) {
+    if (referenceNode.nextSibling) {
+      referenceNode.parentNode.insertBefore(newNode, referenceNode.nextSibling);
+    } else {
+      referenceNode.parentNode.appendChild(newNode);
+    }
+  }
+}
+
+
+function insertFakePost() {
+  isInsertingFakePost = true;
+  
+  const articles = Array.from(document.querySelectorAll('main article'));
+  
+  const currentArticle = articles
+    .filter(article => !article.dataset.fakePost)
+    .reduce((closest, article) => {
+      const rect = article.getBoundingClientRect();
+      const center = rect.top + rect.height / 2;
+      const viewportCenter = window.innerHeight / 2;
+      const distance = Math.abs(center - viewportCenter);
+      
+      if (!closest || distance < closest.distance) {
+        return { article, distance };
+      }
+      return closest;
+    }, null);
+  
+  if (!currentArticle || currentArticle.article.dataset.fakeInserted) {
+    console.log('沒有可插入的目標文章');
+    isInsertingFakePost = false;
+    return;
+  }
+
+  const postData = fakePosts[Math.floor(Math.random() * fakePosts.length)];
+  const post = createFakePost(postData);
+
+  insertAfter(post, currentArticle.article);
+  currentArticle.article.dataset.fakeInserted = 'true';
+  post.dataset.fakePost = 'true';
+  console.log('已插入一則假貼文');
+  
+  setTimeout(() => {
+    isInsertingFakePost = false;
+  }, 500);
 }
