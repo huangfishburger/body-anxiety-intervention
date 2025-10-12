@@ -7,7 +7,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*"],
-      "js": ["content.js"],
+      "js": ["supabase-config.js", "content.js"],
       "css": ["styles.css"]
     }
   ],

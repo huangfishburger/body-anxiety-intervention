@@ -1,0 +1,2 @@
+const SUPABASE_URL = 'https://fuaikgvegpycefcpncwz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1YWlrZ3ZlZ3B5Y2VmY3BuY3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2NTQxMDcsImV4cCI6MjA3NTIzMDEwN30.-5c9K3Wf9zLZWD99M29tBcifSBlkrgxJmRymQhEdm_8';
