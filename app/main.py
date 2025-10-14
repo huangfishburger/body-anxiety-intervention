@@ -12,6 +12,7 @@ from typing import List, Optional
 from app.clip_wrapper import load_clip_model, predict_probs_from_url
 from app.logic import evaluate_image
 from app.window import push_and_decide, snapshot, MIN_PROB, THRESHOLD
+from app.home import router as home_router
 
 # logger = logging.getLogger("uvicorn.error")
 logging.basicConfig(
@@ -51,6 +52,7 @@ class EvalReq(BaseModel):
     timeout: int = 8
 
 # ---------- Endpoints ----------
+app.include_router(home_router)
 
 @app.post("/analyze")
 def analyze(req: AnalyzeReq):
