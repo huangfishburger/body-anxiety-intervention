@@ -20,7 +20,7 @@ DIFF_MIN = 0.05                  # pair-wise gap lower bound (pos - neg)
 GATE_THRESHOLD = 0.3
 
 # Stage-2: fixed requirement "8 out of 13"
-TOTAL_VOTE_REQUIRE = 8
+TOTAL_VOTE_REQUIRE = 6
 EXPECTED_TOTAL_PAIRS = 13  # FF(6) + BE(7)
 
 # ====== Prompts ======
