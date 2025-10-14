@@ -1,4 +1,10 @@
 import logging
+import torch  # ✅ 新增
+
+# ⚡ 初始化階段優化設定（不影響 CLIP 輸出結果）
+torch.backends.cudnn.benchmark = True
+torch.set_float32_matmul_precision("high")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -33,15 +39,14 @@ model, preprocess, device = load_clip_model()
 # ---------- Schemas ----------
 class AnalyzeReq(BaseModel):
     urls: List[str]
-    prompts: Optional[List[str]] = None     # 不給就用 clip_wrapper 的內建/或你自己在呼叫時傳
+    prompts: Optional[List[str]] = None
     timeout: int = 8
 
 
 class EvalReq(BaseModel):
     urls: List[str]
-    agg: str = "max_pos"                    # max_pos | max_gap | weighted_pos | weighted_gap
-    weight_key: str = "diff"                # 加權模式下的權重欄位
-    combine: str = "max"                    # FF 與 BE 合併：'max' 或 'mean'
+    agg: str = "weighted_pos"      # max_pos | max_gap | weighted_pos | weighted_gap
+    weight_key: str = "diff"       # 加權模式下的權重欄位
     timeout: int = 8
 
 # ---------- Endpoints ----------
@@ -62,7 +67,6 @@ def analyze(req: AnalyzeReq):
                 u, model, preprocess, device,
                 prompts, timeout=req.timeout
             )
-            # 預期 res = {"scores": {...}}，若下載或推論失敗會帶 "error"
             res_out = {"url": u}
             res_out.update(res)
             results.append(res_out)
@@ -70,20 +74,24 @@ def analyze(req: AnalyzeReq):
             results.append({"url": u, "error": str(e)})
     return results
 
+
 @app.post("/evaluate")
 def evaluate(req: EvalReq):
     """
-    走 logic.py 的完整規則，輸出單一機率 final_prob 與詳細過程（FF/BE 兩面向）。
+    走 logic.py 的完整規則，輸出單一機率 final_prob 與詳細過程。
+
     回傳格式（單筆）：
       {
         "url": "...",
         "final_prob": 0.xx,
-        "form_fitting": {...},
-        "body_exposure": {...},
+        "clothing_value": ...,
+        "clothing_meta": {...},    # 票數與 pairs 細節
         "ff_value": ...,
         "be_value": ...,
-        "agg": "...",
-        "combine": "...",
+        "ff_breakdown": {...},
+        "be_breakdown": {...},
+        "person_meta": {...},
+        "female_meta": {...},
         "thresholds": {...}
       }
     """
@@ -94,22 +102,21 @@ def evaluate(req: EvalReq):
                 u, model, preprocess, device,
                 timeout=req.timeout,
                 agg=req.agg,
-                weight_key=req.weight_key,
-                combine=req.combine
+                weight_key=req.weight_key
             )
             out.append(r)
         except Exception as e:
             out.append({"url": u, "error": str(e)})
     return out
 
+
 @app.post("/evaluate_with_window")
-def evaluate(req: EvalReq):
+def evaluate_with_window(req: EvalReq):
     """
-    維持 /evaluate 的回傳格式，再多回傳：
+    和 /evaluate 相同，但額外多回傳：
       - window: 最近 5 個 final_prob
       - cumulative: 只加 > min_prob 的總和
       - intervention: cumulative > threshold
-    正式版會改成只回傳 intervention
     """
     out = []
     for u in req.urls:
@@ -118,23 +125,22 @@ def evaluate(req: EvalReq):
                 u, model, preprocess, device,
                 timeout=req.timeout,
                 agg=req.agg,
-                weight_key=req.weight_key,
-                combine=req.combine
+                weight_key=req.weight_key
             )
             fp = r.get("final_prob", None)
 
             if fp is None:
                 raise ValueError("final_prob missing")
-            
+
             window_list, cumulative, intervention = push_and_decide(fp)
-            
+
             r["window"] = window_list
             r["cumulative"] = cumulative
             r["intervention"] = intervention
             out.append(r)
 
         except Exception as e:
-            # 失敗：回傳現狀
+            # 失敗 fallback
             window_list = snapshot()
             cumulative = sum(x for x in window_list if x > MIN_PROB)
             intervention = cumulative > THRESHOLD

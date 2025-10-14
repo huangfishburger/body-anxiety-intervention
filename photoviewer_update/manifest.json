@@ -3,8 +3,7 @@
   "name": "Instagram Image URL Extractor",
   "version": "1.9",
   "description": "Extracts URLs of currently visible Instagram post images, excluding ads and hidden carousel images, with immediate updates on scroll.",
-  "permissions": ["storage"],
-  "host_permissions": ["http://localhost:8000/*"],
+  "permissions": ["storage", "activeTab"],
   "content_scripts": [
     {
       "matches": ["https://www.instagram.com/*"],

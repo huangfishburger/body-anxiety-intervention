@@ -10,10 +10,10 @@ import io
 import hashlib
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from typing import List
+from typing import List, Dict
+from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
-
 
 # ----------------------- 下載＆快取工具 -----------------------
 
@@ -84,11 +84,49 @@ def _load_image_with_cache(url: str, timeout_read: int = 20,
         with open(cache_path, "wb") as f:
             f.write(data)
     except Exception:
-        # 快取失敗不影響推論
         pass
 
     return Image.open(io.BytesIO(data)).convert("RGB")
 
+
+# ----------------------- 加速輔助工具 -----------------------
+
+_TOKEN_CACHE: Dict[str, torch.Tensor] = {}
+
+def _tokenize_cached(prompts: List[str], device):
+    """避免重複 tokenize 相同 prompt，加速但不改結果。"""
+    cached, missed = [], []
+    for p in prompts:
+        t = _TOKEN_CACHE.get(p)
+        if t is None:
+            missed.append(p)
+            cached.append(None)
+        else:
+            cached.append(t)
+    if missed:
+        toks = clip.tokenize(missed)
+        idx = 0
+        for i, t in enumerate(cached):
+            if t is None:
+                _TOKEN_CACHE[missed[idx]] = toks[idx]
+                cached[i] = toks[idx]
+                idx += 1
+    tokens = torch.stack(cached, dim=0)
+    return tokens.to(device)
+
+def _to_device_image(tensor, device):
+    """安全搬移：CUDA 才使用 pinned/non_blocking。"""
+    if hasattr(device, "type") and device.type == "cuda":
+        if tensor.device.type == "cpu":
+            tensor = tensor.half().pin_memory()
+        return tensor.to(device, non_blocking=True)
+    return tensor.to(device)
+
+def _amp_ctx_for(device):
+    """自動啟用半精度加速（僅 CUDA）。"""
+    if hasattr(device, "type") and device.type == "cuda":
+        return torch.cuda.amp.autocast(dtype=torch.float16)
+    return nullcontext()
 
 # ----------------------- CLIP -----------------------
 
@@ -99,6 +137,9 @@ def load_clip_model(device=None):
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model, preprocess = clip.load("ViT-B/32", device=device)
+    if str(device).startswith("cuda") or (hasattr(device, "type") and device.type == "cuda"):
+        model.half()
+    model.eval()
     return model, preprocess, device
 
 def predict_probs_from_url(
@@ -111,20 +152,8 @@ def predict_probs_from_url(
 ) -> dict:
     """
     使用 CLIP 模型預測圖片內容
-
-    Args:
-        image_url: 圖片URL
-        model: CLIP 模型
-        preprocess: 前處理
-        device: 運算設備
-        prompts: 提示詞列表（會一起 softmax）
-        timeout: 讀取逾時（秒）；連線逾時固定 5 秒
-
-    Returns:
-        dict: {"url": ..., "scores": {prompt: prob, ...}} 或 {"url": ..., "error": "..."}
     """
     try:
-        # 下載（帶重試/UA/Referer & 本地快取）
         image = _load_image_with_cache(image_url, timeout_read=timeout, cache_dir=".cache/images")
     except Exception as e:
         msg = f"圖片載入失敗: {str(e)}"
@@ -132,18 +161,14 @@ def predict_probs_from_url(
         return {"url": image_url, "error": str(e)}
 
     # 前處理 & 推論
-    image_input = preprocess(image).unsqueeze(0).to(device)
-    text_tokens = clip.tokenize(prompts).to(device)
+    image_input = _to_device_image(preprocess(image).unsqueeze(0), device)
+    text_tokens = _tokenize_cached(prompts, device)
 
-    with torch.no_grad():
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
+    amp_ctx = _amp_ctx_for(device)
+    with torch.no_grad(), amp_ctx:
         start = time.time()
         logits_per_image, _ = model(image_input, text_tokens)
         probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0].tolist()
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
         logger.info(f"圖片推論時間: {time.time() - start:.4f} 秒")
 
     return {
