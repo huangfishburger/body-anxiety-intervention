@@ -1,25 +1,23 @@
-# app/logic.py — Final fixed version
-# Spec:
-#   - Stage-1 gate: PERSON + FEMALE scores >= 0.7 (both). If fail -> final_prob=0, skip Stage-2
-#   - Stage-2: Combine FF + BE into one pool, ALWAYS evaluate all 13 pairs (FF6 + BE7)
-#              Require TOTAL_VOTE_REQUIRE=8 passed pairs (fixed "8/13"); else final_prob=0
-#              Aggregate passed pairs into clothing_value using agg (default "weighted_pos")
-#              final_prob = clothing_value
-#   - Efficiency: one forward per stage (batch prompts)
-#   - Compatibility: include ff/be breakdown in meta; also return ff_value/be_value for convenience
-#
-# Assumes .clip_wrapper.predict_probs_from_url(image_url, model, preprocess, device, prompts, timeout)
-# returns {"scores": {prompt: float, ...}}.
+# app/logic.py — Dual-gate (PERSON+FEMALE) with per-pair renormalization (pos+neg=1)
+# -----------------------------------------------------------------------------------
+# Stage-1 gate: PERSON + FEMALE scores >= GATE_THRESHOLD (both). If fail -> final_prob=0, skip Stage-2
+# Stage-2: Combine FF + BE into one pool, ALWAYS evaluate all 13 pairs (FF6 + BE7)
+#          Require TOTAL_VOTE_REQUIRE=8 passed pairs; else final_prob=0
+#          Aggregate passed pairs into clothing_value using agg (default "weighted_pos")
+#          final_prob = clothing_value
+# Efficiency: exactly one CLIP forward per stage (batch prompts)
+# Important: For every pair (pos_text, neg_text), we re-normalize to ensure pos_prob+neg_prob == 1,
+#            regardless of whether upstream returns global softmax or raw logits.
 
 from .clip_wrapper import predict_probs_from_url
 
 # ====== Thresholds (tunable) ======
-MARGIN_THRESHOLD = 0.5           # positive prob lower bound
-BORDERLINE_ABS_MARGIN = 0.12     # evidence floor (max(prob) below this -> ignore)
-DIFF_MIN = 0.05                  # pair-wise margin lower bound (pos - neg)
+MARGIN_THRESHOLD = 0.5           # positive prob lower bound for a pair to be considered
+BORDERLINE_ABS_MARGIN = 0.12     # evidence floor (max(pos,neg) must be >= this)
+DIFF_MIN = 0.05                  # pair-wise gap lower bound (pos - neg)
 
-# Stage-1 gate (both must be >= 0.7)
-GATE_THRESHOLD = 0.7
+# Stage-1 gate (BOTH PERSON & FEMALE must be >= this)
+GATE_THRESHOLD = 0.3
 
 # Stage-2: fixed requirement "8 out of 13"
 TOTAL_VOTE_REQUIRE = 8
@@ -61,14 +59,9 @@ BODY_EXPOSURE_PAIRS = [
 # Stage-1 pairs
 PERSON_PAIRS = [
     ("a photo with a visible person", "no person in the image"),
-    ("a human figure in the image", "no human"),
-    ("a person is present", "empty scene"),
 ]
-
 FEMALE_PAIRS = [
-    ("a woman", "a man"),
-    ("a female person", "a male person"),
-    ("an adult woman", "an adult man"),
+    ("a woman in the photo", "a man in the photo"),
 ]
 
 # ====== Helpers ======
@@ -161,15 +154,28 @@ def _pairs_to_prompts_with_index(group_name, pairs):
     return prompts, idx_map
 
 def _gather_rows(scores_dict, prompts, idx_map, group_name, num_pairs):
+    """
+    Build per-pair rows with *pairwise renormalization* so that:
+        pos_prob + neg_prob == 1   (unless both raw scores are 0)
+    This keeps our thresholds meaningful even if upstream used a global softmax.
+    """
     rows = []
     for i in range(num_pairs):
         pos_p = prompts[idx_map[(group_name, i, "pos")]]
         neg_p = prompts[idx_map[(group_name, i, "neg")]]
-        rows.append((
-            float(scores_dict.get(pos_p, 0.0)),
-            float(scores_dict.get(neg_p, 0.0)),
-            pos_p, neg_p
-        ))
+
+        raw_pos = float(scores_dict.get(pos_p, 0.0))
+        raw_neg = float(scores_dict.get(neg_p, 0.0))
+
+        denom = raw_pos + raw_neg
+        if denom <= 0.0:
+            pos_prob = 0.0
+            neg_prob = 0.0
+        else:
+            pos_prob = raw_pos / denom
+            neg_prob = raw_neg / denom
+
+        rows.append((pos_prob, neg_prob, pos_p, neg_p))
     return rows
 
 # ====== Main pipeline: 2-stage ======
@@ -177,32 +183,30 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
                    agg="weighted_pos", weight_key="diff",
                    fast=True, k=4):
     """
-    Stage-1: PERSON + FEMALE gate (one forward; Top-K; both >= 0.7) -> else final_prob=0
+    Stage-1: PERSON + FEMALE gate (one forward; Top-K per group; both >= GATE_THRESHOLD)
     Stage-2: Merge FF + BE (one forward; ALWAYS evaluate all 13 pairs; require votes >= 8)
              final_prob = clothing_value (aggregated with 'agg', default weighted_pos)
     """
-    # ---------- Stage-1 (can use Top-K) ----------
-    # Build prompts (Top-K over Stage-1 groups)
+    # ---------- Stage-1 (PERSON + FEMALE gate in one forward) ----------
     def _select_idx(pairs, k):
         return list(range(min(k, len(pairs)))) if fast else list(range(len(pairs)))
 
-    person_idx = _select_idx(PERSON_PAIRS, k)
     female_idx = _select_idx(FEMALE_PAIRS, k)
+    person_idx = _select_idx(PERSON_PAIRS, k)  # PERSON currently 1 pair
 
-    p_prompts, p_map = _pairs_to_prompts_with_index("PERSON", [PERSON_PAIRS[i] for i in person_idx])
     f_prompts, f_map = _pairs_to_prompts_with_index("FEMALE", [FEMALE_PAIRS[i] for i in female_idx])
+    p_prompts, p_map = _pairs_to_prompts_with_index("PERSON", [PERSON_PAIRS[i] for i in person_idx])
 
-    stage1_prompts = p_prompts + f_prompts
+    stage1_prompts = f_prompts + p_prompts
 
-    # Merge index maps with offset (no literal in LHS patterns)
+    # stage1_map with PERSON offset
     stage1_map = {}
-    stage1_map.update(p_map)
-    offset = len(p_prompts)
-    stage1_map.update({k: idx + offset for k, idx in f_map.items()})
+    stage1_map.update(f_map)
+    offset1 = len(f_prompts)
+    stage1_map.update({k: idx + offset1 for k, idx in p_map.items()})
 
     res1 = predict_probs_from_url(image_url, model, preprocess, device, stage1_prompts, timeout=timeout)
     s1 = res1.get("scores", {}) if isinstance(res1, dict) else {}
-    # Fallback: if missing scores, fail gate
     if not s1 or len(s1) < len(stage1_prompts):
         return {
             "url": image_url,
@@ -218,9 +222,6 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
             }
         }
 
-    person_rows = _gather_rows(s1, stage1_prompts, stage1_map, "PERSON", len(person_idx))
-    female_rows = _gather_rows(s1, stage1_prompts, stage1_map, "FEMALE", len(female_idx))
-
     def _judge_rows(rows):
         out = []
         for pos_prob, neg_prob, pos_txt, neg_txt in rows:
@@ -229,13 +230,16 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
             out.append(rec)
         return out
 
-    person_judged = _judge_rows(person_rows)
+    female_rows = _gather_rows(s1, stage1_prompts, stage1_map, "FEMALE", len(female_idx))
+    person_rows = _gather_rows(s1, stage1_prompts, stage1_map, "PERSON", len(person_idx))
+
     female_judged = _judge_rows(female_rows)
+    person_judged = _judge_rows(person_rows)
 
-    person_score, person_meta2 = _aggregate_group_score_all(person_judged, value_key="pos_prob", weight_key="diff")
     female_score, female_meta2 = _aggregate_group_score_all(female_judged, value_key="pos_prob", weight_key="diff")
+    person_score, person_meta2 = _aggregate_group_score_all(person_judged, value_key="pos_prob", weight_key="diff")
 
-    gate_pass = (person_score >= GATE_THRESHOLD) and (female_score >= GATE_THRESHOLD)
+    gate_pass = (female_score >= GATE_THRESHOLD and person_score >= GATE_THRESHOLD)
     if not gate_pass:
         return {
             "url": image_url,
@@ -265,7 +269,7 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
 
     stage2_prompts = ff_prompts + be_prompts
 
-    # Build stage2_map with proper offsets (no literals in LHS)
+    # stage2_map with BE offset
     stage2_map = {}
     stage2_map.update(ff_map)
     offset2 = len(ff_prompts)
@@ -278,8 +282,8 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
             "url": image_url,
             "final_prob": 0.0,
             "error": "stage2_scores_incomplete",
-            "person_meta": {"pairs": person_judged, "score": person_score, **person_meta2},
-            "female_meta": {"pairs": female_judged, "score": female_score, **female_meta2},
+            "person_meta": {"pairs": person_judged, "score": person_score, "gate_threshold": GATE_THRESHOLD, **person_meta2},
+            "female_meta": {"pairs": female_judged, "score": female_score, "gate_threshold": GATE_THRESHOLD, **female_meta2},
             "thresholds": {
                 "GATE_THRESHOLD": GATE_THRESHOLD,
                 "MARGIN_THRESHOLD": MARGIN_THRESHOLD,
@@ -306,6 +310,16 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
     ff_judged, ff_votes = _judge_and_count(ff_rows)
     be_judged, be_votes = _judge_and_count(be_rows)
 
+        # === DEBUG PRINT for pairwise probs ===
+    print("\n===== [PAIRWISE RESULTS] =====")
+    for rec in ff_judged + be_judged:
+        print(f"[{'FF' if rec in ff_judged else 'BE'}] "
+              f"pos={rec['pos_prob']:.3f}, neg={rec['neg_prob']:.3f}, diff={rec['diff']:.3f}, "
+              f"passed={rec['passed']}, "
+              f"{rec['pos_text']}  |  {rec['neg_text']}")
+    print("==============================\n")
+
+
     # Combined pool
     clothing_judged = ff_judged + be_judged
     clothing_votes = ff_votes + be_votes
@@ -313,8 +327,8 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
 
     # Aggregate
     clothing_value, clothing_meta2 = _aggregate_value_from_passed(clothing_judged, agg=agg, weight_key=weight_key)
-    ff_value, _ff_meta = _aggregate_value_from_passed(ff_judged, agg=agg, weight_key=weight_key)
-    be_value, _be_meta = _aggregate_value_from_passed(be_judged, agg=agg, weight_key=weight_key)
+    ff_value, _ = _aggregate_value_from_passed(ff_judged, agg=agg, weight_key=weight_key)
+    be_value, _ = _aggregate_value_from_passed(be_judged, agg=agg, weight_key=weight_key)
 
     if clothing_votes < TOTAL_VOTE_REQUIRE:
         return {
