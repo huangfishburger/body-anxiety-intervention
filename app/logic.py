@@ -11,19 +11,14 @@
 
 from .clip_wrapper import predict_probs_from_url
 
-# ====== Thresholds (tunable) ======
-MARGIN_THRESHOLD = 0.5           # positive prob lower bound for a pair to be considered
-BORDERLINE_ABS_MARGIN = 0.12     # evidence floor (max(pos,neg) must be >= this)
-DIFF_MIN = 0.05                  # pair-wise gap lower bound (pos - neg)
+# ====== 門檻（可調）======
+MARGIN_THRESHOLD = 0.5           # 正向機率下限
+BORDERLINE_ABS_MARGIN = 0.12     # 證據不足閾值（max(prob) 低於此值不計票）
+DIFF_MIN = 0.05                  # 組內差距（pos - neg）下限
+VOTE_REQUIRE = 4                 # 合身服裝 6 組中至少需通過的組數
+BE_VOTE_REQUIRE = 4              # 身體暴露 7 組中至少需通過的組數（可調）
 
-# Stage-1 gate (BOTH PERSON & FEMALE must be >= this)
-GATE_THRESHOLD = 0.3
-
-# Stage-2: fixed requirement "8 out of 13"
-TOTAL_VOTE_REQUIRE = 8
-EXPECTED_TOTAL_PAIRS = 13  # FF(6) + BE(7)
-
-# ====== Prompts ======
+# ====== prompts（你提供的 6 組 + 1 組）======
 FORM_FIT_PAIRS = [
     ("an instagram photo of a woman wearing a form-fitting top",
      "an instagram photo of a woman wearing a loose or oversized top"),
