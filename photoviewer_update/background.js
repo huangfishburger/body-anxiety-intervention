@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://karenhsieh-body-image.hf.space";
 
 // Supabase 設定
 const SUPABASE_URL = 'https://fuaikgvegpycefcpncwz.supabase.co';
