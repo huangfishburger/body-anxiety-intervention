@@ -144,7 +144,6 @@ document.addEventListener('mouseup', () => {
   });
 });
 
-let intervention = false;
 // Update floating window with URLs
 const updateFloatingWindow = debounce((urls) => {
   const urlList = document.getElementById('url-list');
@@ -157,11 +156,8 @@ const updateFloatingWindow = debounce((urls) => {
   }
   
   // Send the URLs to the background script
-  chrome.runtime.sendMessage({ action: 'evaluate_image', urls: [...urls] }, (response) => {
-    if (Array.isArray(response)) {
-      intervention = response.some(result => result.intervention === true);
-    };
-  });
+  chrome.runtime.sendMessage({ action: 'sendImageUrls', urls: [...urls] });
+
 }, 100);
 
 // Check if an element is visible on the page (not just in DOM)
@@ -227,6 +223,7 @@ function attachCarouselListeners(article) {
     article.dataset.listenersAttached = 'true';
   }
 }
+
 
 // Main function to extract visible post URLs
 function extractUrls() {
@@ -327,7 +324,7 @@ function extractUrls() {
     chrome.runtime.sendMessage({ action: 'sendImageUrls', urls: [...imageUrls] }, (response) => {
       if (Array.isArray(response)) {
         intervention = response.some(item => item.intervention === true);
-        if (!intervention) {
+        if (intervention) {
           insertFakePost();
           intervention = false;
         } else {
@@ -343,9 +340,11 @@ let isInsertingFakePost = false;
 function observeContent() {
   const target = document.querySelector('main[role="main"]') || document.body;
   console.log('Observing target:', target.tagName, target.className);
+
   if (observer) {
       observer.disconnect();
   }
+  
 
   observer = new MutationObserver(debounce(() => {
     if (isInsertingFakePost) {
@@ -361,10 +360,9 @@ function observeContent() {
     subtree: true
   });
 
-  // Update on scroll to ensure URLs are removed when images leave viewport
+  // Update on scroll
   window.addEventListener('scroll', debounce(() => {
-    console.log('Scroll event triggered');
-    requestAnimationFrame(extractImageUrls);
+    requestAnimationFrame(extractUrls);
   }, 50));
 
   // Initial extraction
