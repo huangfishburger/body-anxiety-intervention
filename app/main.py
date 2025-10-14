@@ -1,4 +1,10 @@
 import logging
+import torch  # ✅ 新增
+
+# ⚡ 初始化階段優化設定（不影響 CLIP 輸出結果）
+torch.backends.cudnn.benchmark = True
+torch.set_float32_matmul_precision("high")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
