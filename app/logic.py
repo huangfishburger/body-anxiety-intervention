@@ -310,14 +310,14 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
     ff_judged, ff_votes = _judge_and_count(ff_rows)
     be_judged, be_votes = _judge_and_count(be_rows)
 
-        # === DEBUG PRINT for pairwise probs ===
-    print("\n===== [PAIRWISE RESULTS] =====")
-    for rec in ff_judged + be_judged:
-        print(f"[{'FF' if rec in ff_judged else 'BE'}] "
-              f"pos={rec['pos_prob']:.3f}, neg={rec['neg_prob']:.3f}, diff={rec['diff']:.3f}, "
-              f"passed={rec['passed']}, "
-              f"{rec['pos_text']}  |  {rec['neg_text']}")
-    print("==============================\n")
+    # === DEBUG PRINT for pairwise probs ===
+    # print("\n===== [PAIRWISE RESULTS] =====")
+    # for rec in ff_judged + be_judged:
+    #     print(f"[{'FF' if rec in ff_judged else 'BE'}] "
+    #           f"pos={rec['pos_prob']:.3f}, neg={rec['neg_prob']:.3f}, diff={rec['diff']:.3f}, "
+    #           f"passed={rec['passed']}, "
+    #           f"{rec['pos_text']}  |  {rec['neg_text']}")
+    # print("==============================\n")
 
 
     # Combined pool

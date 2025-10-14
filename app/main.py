@@ -44,6 +44,7 @@ class AnalyzeReq(BaseModel):
 
 
 class EvalReq(BaseModel):
+    user_id: str = "default_user"
     urls: List[str]
     agg: str = "weighted_pos"      # max_pos | max_gap | weighted_pos | weighted_gap
     weight_key: str = "diff"       # 加權模式下的權重欄位
@@ -132,7 +133,7 @@ def evaluate_with_window(req: EvalReq):
             if fp is None:
                 raise ValueError("final_prob missing")
 
-            window_list, cumulative, intervention = push_and_decide(fp)
+            window_list, cumulative, intervention = push_and_decide(req.user_id, fp)
 
             r["window"] = window_list
             r["cumulative"] = cumulative
