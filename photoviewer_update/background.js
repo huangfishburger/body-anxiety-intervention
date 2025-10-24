@@ -4,6 +4,22 @@ const API_BASE = "https://karenhsieh-body-image.hf.space";
 const SUPABASE_URL = 'https://fuaikgvegpycefcpncwz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1YWlrZ3ZlZ3B5Y2VmY3BuY3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2NTQxMDcsImV4cCI6MjA3NTIzMDEwN30.-5c9K3Wf9zLZWD99M29tBcifSBlkrgxJmRymQhEdm_8';
 
+function getAnonymousId() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['instagram_extension_user_id'], (result) => {
+      if (result.instagram_extension_user_id) {
+        resolve(result.instagram_extension_user_id);
+      } else {
+        // 如果沒有則生成一個新的
+        const newId = crypto.randomUUID();
+        chrome.storage.local.set({ instagram_extension_user_id: newId }, () => {
+          resolve(newId);
+        });
+      }
+    });
+  });
+}
+
 // 儲存互動到 Supabase
 async function saveInteractionToSupabase(interactionData) {
   try {
@@ -69,8 +85,8 @@ async function saveInteractionToSupabase(interactionData) {
   }
 }
 
+// send image 計算機率
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // send image 計算機率
   if (message.action === 'sendImageUrls') {
     console.log('Sending image URLs to backend:', message.urls);
     const urls = Array.from(new Set(message.urls || [])).slice(0, 20);
@@ -78,24 +94,43 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse([]);
       return;
     }
+    
+    // 取得 anonymous ID 後再發送請求
+    getAnonymousId().then(anonymousId => {
+      fetch(`${API_BASE}/evaluate_with_window`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          urls: urls,
+          user_id: anonymousId  
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log('Analyze result:', data);
 
-    fetch(`${API_BASE}/evaluate_with_window`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls })
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log('Analyze result:', data);
-      sendResponse(data);
-    })
-    .catch(err => {
-      console.error('Analyze error:', err);
-      sendResponse({ error: err.message })
-    });
+        // 檢查是否觸發 intervention 
+        const hasIntervention = data.some(result => result.intervention === true);
+        
+        if (hasIntervention) {
+          console.log('Intervention detected.');
+
+          chrome.tabs.sendMessage(sender.tab.id, {
+            action: 'insertFakePost',
+            data: data
+          });
+        }
+        else {
+          console.log('機率未達，未插入假貼文');
+        }
+      })
+      .catch(err => {
+        console.error('Analyze error:', err);
+        sendResponse({ error: err.message })
+      });
     return true;
+    });
   }
-
   // 儲存資料
   if (message.action === 'logPostInteraction') {
     console.log('Received interaction log:', message.data);

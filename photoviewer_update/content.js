@@ -74,6 +74,7 @@ floatingWindow.innerHTML = `
   </div>
   <div id="url-list">Loading...</div>
 `;
+floatingWindow.style.display = 'none';
 document.body.appendChild(floatingWindow);
 
 // Make window draggable
@@ -157,7 +158,6 @@ const updateFloatingWindow = debounce((urls) => {
   
   // Send the URLs to the background script
   chrome.runtime.sendMessage({ action: 'sendImageUrls', urls: [...urls] });
-
 }, 100);
 
 // Check if an element is visible on the page (not just in DOM)
@@ -321,19 +321,14 @@ function extractUrls() {
   if (urlsArray.join() !== [...imageUrls].join()) {
     imageUrls = newUrls;
     updateFloatingWindow(urlsArray);
-    chrome.runtime.sendMessage({ action: 'sendImageUrls', urls: [...imageUrls] }, (response) => {
-      if (Array.isArray(response)) {
-        intervention = response.some(item => item.intervention === true);
-        if (intervention) {
-          insertFakePost();
-          intervention = false;
-        } else {
-          console.log('機率未達，未插入假貼文');
-        }
-      };
-    });
   }
 }
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'insertFakePost') {
+    insertFakePost();
+  }
+});
 
 let isInsertingFakePost = false;
 // Observe changes in post container and scroll events
@@ -431,6 +426,14 @@ function createFakePost({ username, caption, image, comments }) {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
     min-height: 300px;
+    post.style.position = 'static';
+    post.style.display = 'block';
+    post.style.alignSelf = 'auto';
+    post.style.margin = '0 auto';
+    post.style.width = '100%';
+    post.style.maxWidth = '470px'; // Instagram feed 寬度
+    post.style.zIndex = '1';
+    post.style.transform = 'none';
   `;
 
   post.innerHTML = `
