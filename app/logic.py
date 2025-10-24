@@ -11,14 +11,19 @@
 
 from .clip_wrapper import predict_probs_from_url
 
-# ====== 門檻（可調）======
-MARGIN_THRESHOLD = 0.5           # 正向機率下限
-BORDERLINE_ABS_MARGIN = 0.12     # 證據不足閾值（max(prob) 低於此值不計票）
-DIFF_MIN = 0.05                  # 組內差距（pos - neg）下限
-VOTE_REQUIRE = 4                 # 合身服裝 6 組中至少需通過的組數
-BE_VOTE_REQUIRE = 4              # 身體暴露 7 組中至少需通過的組數（可調）
+# ====== Thresholds (tunable) ======
+MARGIN_THRESHOLD = 0.5           # positive prob lower bound for a pair to be considered
+BORDERLINE_ABS_MARGIN = 0.12     # evidence floor (max(pos,neg) must be >= this)
+DIFF_MIN = 0.05                  # pair-wise gap lower bound (pos - neg)
 
-# ====== prompts（你提供的 6 組 + 1 組）======
+# Stage-1 gate (BOTH PERSON & FEMALE must be >= this)
+GATE_THRESHOLD = 0.3
+
+# Stage-2: fixed requirement "8 out of 13"
+TOTAL_VOTE_REQUIRE = 6
+EXPECTED_TOTAL_PAIRS = 13  # FF(6) + BE(7)
+
+# ====== Prompts ======
 FORM_FIT_PAIRS = [
     ("an instagram photo of a woman wearing a form-fitting top",
      "an instagram photo of a woman wearing a loose or oversized top"),
@@ -305,14 +310,14 @@ def evaluate_image(image_url, model, preprocess, device, timeout=8,
     ff_judged, ff_votes = _judge_and_count(ff_rows)
     be_judged, be_votes = _judge_and_count(be_rows)
 
-        # === DEBUG PRINT for pairwise probs ===
-    print("\n===== [PAIRWISE RESULTS] =====")
-    for rec in ff_judged + be_judged:
-        print(f"[{'FF' if rec in ff_judged else 'BE'}] "
-              f"pos={rec['pos_prob']:.3f}, neg={rec['neg_prob']:.3f}, diff={rec['diff']:.3f}, "
-              f"passed={rec['passed']}, "
-              f"{rec['pos_text']}  |  {rec['neg_text']}")
-    print("==============================\n")
+    # === DEBUG PRINT for pairwise probs ===
+    # print("\n===== [PAIRWISE RESULTS] =====")
+    # for rec in ff_judged + be_judged:
+    #     print(f"[{'FF' if rec in ff_judged else 'BE'}] "
+    #           f"pos={rec['pos_prob']:.3f}, neg={rec['neg_prob']:.3f}, diff={rec['diff']:.3f}, "
+    #           f"passed={rec['passed']}, "
+    #           f"{rec['pos_text']}  |  {rec['neg_text']}")
+    # print("==============================\n")
 
 
     # Combined pool

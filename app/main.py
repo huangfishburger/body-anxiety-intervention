@@ -12,6 +12,7 @@ from typing import List, Optional
 from app.clip_wrapper import load_clip_model, predict_probs_from_url
 from app.logic import evaluate_image
 from app.window import push_and_decide, snapshot, MIN_PROB, THRESHOLD
+from app.home import router as home_router
 
 # logger = logging.getLogger("uvicorn.error")
 logging.basicConfig(
@@ -44,12 +45,14 @@ class AnalyzeReq(BaseModel):
 
 
 class EvalReq(BaseModel):
+    user_id: str = "default_user"
     urls: List[str]
     agg: str = "weighted_pos"      # max_pos | max_gap | weighted_pos | weighted_gap
     weight_key: str = "diff"       # 加權模式下的權重欄位
     timeout: int = 8
 
 # ---------- Endpoints ----------
+app.include_router(home_router)
 
 @app.post("/analyze")
 def analyze(req: AnalyzeReq):
@@ -132,7 +135,7 @@ def evaluate_with_window(req: EvalReq):
             if fp is None:
                 raise ValueError("final_prob missing")
 
-            window_list, cumulative, intervention = push_and_decide(fp)
+            window_list, cumulative, intervention = push_and_decide(req.user_id, fp)
 
             r["window"] = window_list
             r["cumulative"] = cumulative
