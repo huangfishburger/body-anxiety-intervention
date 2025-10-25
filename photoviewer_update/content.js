@@ -243,6 +243,10 @@ function extractUrls() {
     // Handle standard page views (Home, Explore)
     document.querySelectorAll('article, [role="feed"] > div, [role="feed"] > ._aayx, main div[class*="x78536"], main section[class*="x78536"]').forEach(article => {
       // First, check if the entire article is vertically in the viewport
+      if (article.dataset?.fakePost === 'true' || article.dataset?.fakeInserted === 'true') {
+        return;
+      }
+
       if (!isPostSignificantlyVisible(article)) {
           return;
       }
@@ -324,13 +328,15 @@ function extractUrls() {
   }
 }
 
+let isInsertingFakePost = false;
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'insertFakePost') {
     insertFakePost();
+    isInsertingFakePost = true;
   }
 });
 
-let isInsertingFakePost = false;
+
 // Observe changes in post container and scroll events
 function observeContent() {
   const target = document.querySelector('main[role="main"]') || document.body;
@@ -341,11 +347,26 @@ function observeContent() {
   }
   
 
-  observer = new MutationObserver(debounce(() => {
+  observer = new MutationObserver(debounce((mutations) => {
     if (isInsertingFakePost) {
       console.log('正在插入假貼文，忽略 MutationObserver');
       return;
     }
+    
+    const isFakePostMutation = mutations.some(mutation => {
+      const target = mutation.target;
+      return target.dataset?.fakePost === 'true' || 
+            target.closest('[data-fake-post="true"]') ||
+            Array.from(mutation.addedNodes).some(node => 
+              node.dataset?.fakePost === 'true'
+            );
+    });
+    
+    if (isFakePostMutation) {
+      console.log('假貼文相關的 DOM 變化，忽略');
+      return;
+    }
+    
     console.log('MutationObserver triggered');
     extractUrls();
   }, 50));
@@ -384,10 +405,12 @@ try {
   }
 }
 
+
+
 /*
 ----------------------
  intervention fake posts
- ----------------------
+----------------------
 */
 
 
@@ -402,7 +425,7 @@ const fakePosts = [
     username: "chill_cat",
     caption: "午睡時光 💤☀️",
     image: chrome.runtime.getURL("images/icon2.png"),
-    comments: 1
+    comments: 123
   },
   {
     username: "abcd_eat",
@@ -410,7 +433,104 @@ const fakePosts = [
               嘿嘿好險我只是可愛狗勾不用上班的
               就讓再我多睡一點吧😴😴😴`,
     image: chrome.runtime.getURL("images/icon3.png"),
-    comments: 23
+    comments: 2302
+  },
+  {
+    username: "cuteyy_puppy",
+    caption: "誰能抵擋這雙大眼睛呢？",
+    image: chrome.runtime.getURL("images/icon4.png"),
+    comments: 504
+  },
+  {
+    username: "meowwcat",
+    caption: "小可愛出沒，請注意！",
+    image: chrome.runtime.getURL("images/icon5.png"),
+    comments: 21
+  },
+  {
+    username: "doggggslover",
+    caption: `我可不是壞孩子，只是調皮而已`,
+    image: chrome.runtime.getURL("images/icon6.png"),
+    comments: 253
+  },
+  {
+    username: "sasamo",
+    caption: "好累~~~~ 😴👼",
+    image: chrome.runtime.getURL("images/icon7.png"),
+    comments: 5022
+  },
+  {
+    username: "lovechi",
+    caption: "毛茸茸的擁抱，暖暖你的心 🐾💛",
+    image: chrome.runtime.getURL("images/icon8.png"),
+    comments: 123
+  },
+  {
+    username: "yellowdog",
+    caption: `台北終於沒下雨了~~
+              出來曬曬太陽☀️🌈`,
+    image: chrome.runtime.getURL("images/icon9.png"),
+    comments: 2432
+  },
+    {
+    username: "dog_on_a_trip",
+    caption: "今天又是萌力滿分的一天！ 🌟🐕",
+    image: chrome.runtime.getURL("images/icon10.png"),
+    comments: 551
+  },
+  {
+    username: "sasamo",
+    caption: "冬天要到了，給薩薩戴上帽子啦 ❄️🧣",
+    image: chrome.runtime.getURL("images/icon11.png"),
+    comments: 14
+  },
+  {
+    username: "abcd_eat",
+    caption: `不要叫醒我，我在做美夢 💤🌙`,
+    image: chrome.runtime.getURL("images/icon12.png"),
+    comments: 2388
+  },
+  {
+    username: "catty_love",
+    caption: "想吃零食了～ 🍪😂",
+    image: chrome.runtime.getURL("images/icon13.png"),
+    comments: 5603
+  },
+  {
+    username: "ccccccat",
+    caption: "毛茸茸的擁抱，暖暖你的心 🐾💛",
+    image: chrome.runtime.getURL("images/icon14.png"),
+    comments: 31
+  },
+  {
+    username: "golden_yen",
+    caption: `笑一笑，金燕又是美好的一天 😄🐶`,
+    image: chrome.runtime.getURL("images/icon15.png"),
+    comments: 1263
+  },
+  {
+    username: "relax_cat",
+    caption: "不想上班啦～帶我去旅行吧！ ✈️🐾",
+    image: chrome.runtime.getURL("images/icon16.png"),
+    comments: 750
+  },
+  {
+    username: "loveyouuuu",
+    caption: "送你一朵小花花 🌸 你是世界上最棒的人",
+    image: chrome.runtime.getURL("images/icon17.png"),
+    comments: 132
+  },
+  {
+    username: "golden_yen",
+    caption: `周末吃太胖啦！要開始減肥計畫了 🥗🏃‍♂️`,
+    image: chrome.runtime.getURL("images/icon18.png"),
+    comments: 423
+  },
+    {
+    username: "dogstagram",
+    caption: "今天也要元氣滿滿喔！ 💪",
+    image: chrome.runtime.getURL("images/icon19.png"),
+    comments: 250
   },
 ];
 
@@ -426,14 +546,6 @@ function createFakePost({ username, caption, image, comments }) {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     overflow: hidden;
     min-height: 300px;
-    post.style.position = 'static';
-    post.style.display = 'block';
-    post.style.alignSelf = 'auto';
-    post.style.margin = '0 auto';
-    post.style.width = '100%';
-    post.style.maxWidth = '470px'; // Instagram feed 寬度
-    post.style.zIndex = '1';
-    post.style.transform = 'none';
   `;
 
   post.innerHTML = `
@@ -512,6 +624,17 @@ function insertAfter(newNode, referenceNode) {
 
 function insertFakePost() {
   isInsertingFakePost = true;
+
+  // 檢查現有假貼文數量
+  const existingFakePosts = document.querySelectorAll('[data-fake-post="true"]');
+  console.log(`目前假貼文數量: ${existingFakePosts.length}`);
+  
+  // 如果已有 3 張，刪除最舊的（第一張）
+  if (existingFakePosts.length >= 3) {
+    const oldestPost = existingFakePosts[0];
+    console.log('刪除最舊的假貼文');
+    oldestPost.remove();
+  }
   
   const articles = Array.from(document.querySelectorAll('main article'));
   
@@ -520,7 +643,7 @@ function insertFakePost() {
     .reduce((closest, article) => {
       const rect = article.getBoundingClientRect();
       const center = rect.top + rect.height / 2;
-      const viewportCenter = window.innerHeight / 2;
+      const viewportCenter = window.innerHeight / 3;
       const distance = Math.abs(center - viewportCenter);
       
       if (!closest || distance < closest.distance) {
@@ -546,5 +669,5 @@ function insertFakePost() {
   
   setTimeout(() => {
     isInsertingFakePost = false;
-  }, 500);
+  }, 1000);
 }
