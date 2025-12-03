@@ -11,7 +11,7 @@ _windows = defaultdict(lambda: deque(maxlen=WINDOW_SIZE))
 
 def reset(user_id: str) -> None:
     """
-    清空指定使用者的 window。
+    clear user's window。
     """
     if user_id in _locks:
         with _locks[user_id]:
@@ -19,7 +19,7 @@ def reset(user_id: str) -> None:
 
 def snapshot(user_id: str) -> List[float]:
     """
-    回傳指定 user_id 的 window。
+    return window
     """
     with _locks[user_id]:
         return list(_windows.get(user_id, []))
@@ -35,9 +35,9 @@ def _safe_to_float(x) -> Optional[float]:
 
 def push_and_decide(user_id: str, prob: float) -> Tuple[List[float], float, bool]:
     """
-    把機率推進使用者的 window，並回傳：
-    - window: List[float] (最近 5 張的機率)
-    - cumulative: float (只加 > 0.5 的總和)
+    append probability to user window and return:
+    - window: List[float] (latest 5 posts)
+    - cumulative: float (only add probability > 0.5)
     - intervention: bool (cumulative > 1.8)
     """
     with _locks[user_id]:

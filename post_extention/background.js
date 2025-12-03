@@ -1,13 +1,28 @@
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://karenhsieh-body-image.hf.space";
 
-// Supabase 設定
+// Supabase setting
 const SUPABASE_URL = 'https://fuaikgvegpycefcpncwz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1YWlrZ3ZlZ3B5Y2VmY3BuY3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk2NTQxMDcsImV4cCI6MjA3NTIzMDEwN30.-5c9K3Wf9zLZWD99M29tBcifSBlkrgxJmRymQhEdm_8';
 
-// 儲存互動到 Supabase
+function getAnonymousId() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['instagram_extension_user_id'], (result) => {
+      if (result.instagram_extension_user_id) {
+        resolve(result.instagram_extension_user_id);
+      } else {
+        const newId = crypto.randomUUID();
+        chrome.storage.local.set({ instagram_extension_user_id: newId }, () => {
+          resolve(newId);
+        });
+      }
+    });
+  });
+}
+
+// save interaction to Supabase
 async function saveInteractionToSupabase(interactionData) {
   try {
-    // 先確保 user 存在
+    // user existed
     const userResponse = await fetch(`${SUPABASE_URL}/rest/v1/users?anonymous_id=eq.${interactionData.anonymousId}`, {
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -19,7 +34,7 @@ async function saveInteractionToSupabase(interactionData) {
     let userId;
     
     if (users.length === 0) {
-      // 建立新 user
+      // create new user
       const createUserResponse = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
         method: 'POST',
         headers: {
@@ -41,7 +56,7 @@ async function saveInteractionToSupabase(interactionData) {
       console.log('Using existing user:', userId);
     }
     
-    // 儲存互動記錄
+    // save
     const interactionResponse = await fetch(`${SUPABASE_URL}/rest/v1/post_interactions`, {
       method: 'POST',
       headers: {
@@ -69,8 +84,8 @@ async function saveInteractionToSupabase(interactionData) {
   }
 }
 
+// send image to calculate probability
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // send image 計算機率
   if (message.action === 'sendImageUrls') {
     console.log('Sending image URLs to backend:', message.urls);
     const urls = Array.from(new Set(message.urls || [])).slice(0, 20);
@@ -78,25 +93,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse([]);
       return;
     }
+    
+    // get anonymous ID and send request
+    getAnonymousId().then(anonymousId => {
+      fetch(`${API_BASE}/evaluate_with_window`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          urls: urls,
+          user_id: anonymousId  
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log('Analyze result:', data);
 
-    fetch(`${API_BASE}/evaluate_with_window`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ urls })
-    })
-    .then(res => res.json())
-    .then(data => {
-      console.log('Analyze result:', data);
-      sendResponse(data);
-    })
-    .catch(err => {
-      console.error('Analyze error:', err);
-      sendResponse({ error: err.message })
-    });
+        // intervention 
+        const hasIntervention = data.some(result => result.intervention === true);
+        
+        if (hasIntervention) {
+          console.log('Intervention detected.');
+
+          chrome.tabs.sendMessage(sender.tab.id, {
+            action: 'insertFakePost',
+            data: data
+          });
+        }
+        else {
+          console.log('The probability threshold was not met, so no fake posts were inserted.');
+        }
+      })
+      .catch(err => {
+        console.error('Analyze error:', err);
+        sendResponse({ error: err.message })
+      });
     return true;
+    });
   }
-
-  // 儲存資料
+  // save
   if (message.action === 'logPostInteraction') {
     console.log('Received interaction log:', message.data);
     saveInteractionToSupabase(message.data);

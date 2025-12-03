@@ -1,7 +1,6 @@
 import logging
-import torch  # ✅ 新增
+import torch 
 
-# ⚡ 初始化階段優化設定（不影響 CLIP 輸出結果）
 torch.backends.cudnn.benchmark = True
 torch.set_float32_matmul_precision("high")
 
@@ -34,7 +33,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 啟動時載入模型
+
 model, preprocess, device = load_clip_model()
 
 # ---------- Schemas ----------
@@ -48,7 +47,7 @@ class EvalReq(BaseModel):
     user_id: str = "default_user"
     urls: List[str]
     agg: str = "weighted_pos"      # max_pos | max_gap | weighted_pos | weighted_gap
-    weight_key: str = "diff"       # 加權模式下的權重欄位
+    weight_key: str = "diff"       # weighted
     timeout: int = 8
 
 # ---------- Endpoints ----------
@@ -57,8 +56,8 @@ app.include_router(home_router)
 @app.post("/analyze")
 def analyze(req: AnalyzeReq):
     """
-    純 CLIP 機率：對每張圖跑一次 predict_probs_from_url，回傳每個 prompt 的 softmax 機率。
-    回傳格式（單筆）：
+    Pure CLIP probabilities: Run predict_probs_from_url on each image, returning the softmax probability for each prompt.
+    Return format（single entry）：
       { "url": "...", "scores": { "<prompt>": 0.12, ... } }
     """
     results = []
@@ -81,14 +80,14 @@ def analyze(req: AnalyzeReq):
 @app.post("/evaluate")
 def evaluate(req: EvalReq):
     """
-    走 logic.py 的完整規則，輸出單一機率 final_prob 與詳細過程。
+    Apply the full rules from logic.py, outputting a single probability final_prob along with the detailed process.
 
-    回傳格式（單筆）：
+    return format（single entry）：
       {
         "url": "...",
         "final_prob": 0.xx,
         "clothing_value": ...,
-        "clothing_meta": {...},    # 票數與 pairs 細節
+        "clothing_meta": {...}, 
         "ff_value": ...,
         "be_value": ...,
         "ff_breakdown": {...},
@@ -116,9 +115,9 @@ def evaluate(req: EvalReq):
 @app.post("/evaluate_with_window")
 def evaluate_with_window(req: EvalReq):
     """
-    和 /evaluate 相同，但額外多回傳：
-      - window: 最近 5 個 final_prob
-      - cumulative: 只加 > min_prob 的總和
+    same as /evaluate, but additionally add:
+      - window: latest final_prob
+      - cumulative: only add probability > min_prob 
       - intervention: cumulative > threshold
     """
     out = []
@@ -143,7 +142,7 @@ def evaluate_with_window(req: EvalReq):
             out.append(r)
 
         except Exception as e:
-            # 失敗 fallback
+            # failed fallback
             window_list = snapshot()
             cumulative = sum(x for x in window_list if x > MIN_PROB)
             intervention = cumulative > THRESHOLD

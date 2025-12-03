@@ -15,13 +15,13 @@ from contextlib import nullcontext
 
 logger = logging.getLogger(__name__)
 
-# ----------------------- 下載＆快取工具 -----------------------
+# ----------------------- download -----------------------
 
 def _http_session():
-    """回傳帶重試與 UA 的 requests Session。"""
+    """Returns a requests.Session with retry logic and User-Agent."""
     retry = Retry(
-        total=3,                # 失敗重試 3 次
-        backoff_factor=0.6,     # 0.6s, 1.2s, 1.8s
+        total=3,              
+        backoff_factor=0.6,    
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["GET", "HEAD"],
         raise_on_status=False,
@@ -45,11 +45,10 @@ def _cache_path_for_url(url: str, cache_dir: str = ".cache/images") -> str:
 def _load_image_with_cache(url: str, timeout_read: int = 20,
                            cache_dir: str = ".cache/images") -> Image.Image:
     """
-    先查本地快取；沒有就下載（帶重試/UA/Referer），並寫入快取。
-    - connect-timeout 固定 5 秒；read-timeout 由 timeout_read 控制。
-    - 支援本地檔路徑或 file://
+    Check the local cache first; if missing, download (with retries, User-Agent, and Referer) and write to cache.
+    - Connect timeout fixed at 5 seconds; read timeout controlled by timeout_read.
+    - Supports local file paths or file://.
     """
-    # 本地檔支援
     if url.startswith("file://") or os.path.exists(url):
         path = url.replace("file://", "")
         return Image.open(path).convert("RGB")
@@ -59,7 +58,7 @@ def _load_image_with_cache(url: str, timeout_read: int = 20,
         with open(cache_path, "rb") as f:
             return Image.open(io.BytesIO(f.read())).convert("RGB")
 
-    # 避免有些站檢查 Referer
+    # avoid Referer
     try:
         host = url.split("/")[2]
         referer = f"https://{host}"
@@ -79,7 +78,7 @@ def _load_image_with_cache(url: str, timeout_read: int = 20,
     except Exception as e:
         raise
 
-    # 寫入快取
+    # cache
     try:
         with open(cache_path, "wb") as f:
             f.write(data)
@@ -89,12 +88,12 @@ def _load_image_with_cache(url: str, timeout_read: int = 20,
     return Image.open(io.BytesIO(data)).convert("RGB")
 
 
-# ----------------------- 加速輔助工具 -----------------------
+# ----------------------- accumulation tool -----------------------
 
 _TOKEN_CACHE: Dict[str, torch.Tensor] = {}
 
 def _tokenize_cached(prompts: List[str], device):
-    """避免重複 tokenize 相同 prompt，加速但不改結果。"""
+    """Avoid redundant tokenization of the same prompt to speed up processing without changing results."""
     cached, missed = [], []
     for p in prompts:
         t = _TOKEN_CACHE.get(p)
@@ -115,7 +114,7 @@ def _tokenize_cached(prompts: List[str], device):
     return tokens.to(device)
 
 def _to_device_image(tensor, device):
-    """安全搬移：CUDA 才使用 pinned/non_blocking。"""
+    """Safe transfer: use pinned/non_blocking only with CUDA."""
     if hasattr(device, "type") and device.type == "cuda":
         if tensor.device.type == "cpu":
             tensor = tensor.half().pin_memory()
@@ -123,7 +122,7 @@ def _to_device_image(tensor, device):
     return tensor.to(device)
 
 def _amp_ctx_for(device):
-    """自動啟用半精度加速（僅 CUDA）。"""
+    """Automatically enable half-precision acceleration (CUDA only)."""
     if hasattr(device, "type") and device.type == "cuda":
         return torch.cuda.amp.autocast(dtype=torch.float16)
     return nullcontext()
@@ -132,7 +131,7 @@ def _amp_ctx_for(device):
 
 def load_clip_model(device=None):
     """
-    載入 CLIP 模型
+    load CLIP model
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -151,16 +150,16 @@ def predict_probs_from_url(
     timeout: int = 8
 ) -> dict:
     """
-    使用 CLIP 模型預測圖片內容
+    Use CLIP model to predict content of photo
     """
     try:
         image = _load_image_with_cache(image_url, timeout_read=timeout, cache_dir=".cache/images")
     except Exception as e:
-        msg = f"圖片載入失敗: {str(e)}"
+        msg = f"Failed to load photos: {str(e)}"
         logger.error(msg)
         return {"url": image_url, "error": str(e)}
 
-    # 前處理 & 推論
+    # preprocessing & inference
     image_input = _to_device_image(preprocess(image).unsqueeze(0), device)
     text_tokens = _tokenize_cached(prompts, device)
 
@@ -169,7 +168,7 @@ def predict_probs_from_url(
         start = time.time()
         logits_per_image, _ = model(image_input, text_tokens)
         probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0].tolist()
-        logger.info(f"圖片推論時間: {time.time() - start:.4f} 秒")
+        logger.info(f"Image inference time: {time.time() - start:.4f} 秒")
 
     return {
         "url": image_url,

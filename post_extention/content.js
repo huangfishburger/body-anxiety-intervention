@@ -1,6 +1,6 @@
 /*
 ----------------------
-SUPABASE 追蹤設定
+SUPABASE setting
 ----------------------
 */
 
@@ -19,7 +19,7 @@ function getOrCreateAnonymousId() {
   return anonymousId;
 }
 
-// 紀錄互動
+// record interaction
 function logInteraction(action, url, caption) {
   if (!anonymousUserId) {
     console.warn('Cannot log interaction: missing user ID');
@@ -40,7 +40,7 @@ function logInteraction(action, url, caption) {
   console.log(`Logged: ${action} - ${url}`);
 }
 
-// 初始化 anonymous ID
+// initialize anonymous ID
 anonymousUserId = getOrCreateAnonymousId();
 console.log('Using anonymous ID:', anonymousUserId);
 
@@ -349,7 +349,7 @@ function observeContent() {
 
   observer = new MutationObserver(debounce((mutations) => {
     if (isInsertingFakePost) {
-      console.log('正在插入假貼文，忽略 MutationObserver');
+      console.log('Inserting a fake post now, ignore MutationObserver');
       return;
     }
     
@@ -363,7 +363,6 @@ function observeContent() {
     });
     
     if (isFakePostMutation) {
-      console.log('假貼文相關的 DOM 變化，忽略');
       return;
     }
     
@@ -417,118 +416,116 @@ try {
 const fakePosts = [
   {
     username: "dog_on_a_trip",
-    caption: "開車兜風 ❤️🚗✨",
+    caption: "happy happy ❤️🚗✨",
     image: chrome.runtime.getURL("images/icon1.png"),
     comments: 50
   },
   {
     username: "chill_cat",
-    caption: "午睡時光 💤☀️",
+    caption: "It's sleep time 💤☀️",
     image: chrome.runtime.getURL("images/icon2.png"),
     comments: 123
   },
   {
     username: "abcd_eat",
-    caption: `什麼！星期一了😱
-              嘿嘿好險我只是可愛狗勾不用上班的
-              就讓再我多睡一點吧😴😴😴`,
+    caption: `I hate Monday😱
+              I want to sleep😴😴😴`,
     image: chrome.runtime.getURL("images/icon3.png"),
     comments: 2302
   },
   {
     username: "cuteyy_puppy",
-    caption: "誰能抵擋這雙大眼睛呢？",
+    caption: "cute girllllll",
     image: chrome.runtime.getURL("images/icon4.png"),
     comments: 504
   },
   {
     username: "meowwcat",
-    caption: "小可愛出沒，請注意！",
+    caption: "Be careful!!",
     image: chrome.runtime.getURL("images/icon5.png"),
     comments: 21
   },
   {
     username: "doggggslover",
-    caption: `我可不是壞孩子，只是調皮而已`,
+    caption: `Naughty boy`,
     image: chrome.runtime.getURL("images/icon6.png"),
     comments: 253
   },
   {
     username: "sasamo",
-    caption: "好累~~~~ 😴👼",
+    caption: "sooooo tired 😴👼",
     image: chrome.runtime.getURL("images/icon7.png"),
     comments: 5022
   },
   {
     username: "lovechi",
-    caption: "毛茸茸的擁抱，暖暖你的心 🐾💛",
+    caption: "Give you a warm hug🐾💛",
     image: chrome.runtime.getURL("images/icon8.png"),
     comments: 123
   },
   {
     username: "yellowdog",
-    caption: `台北終於沒下雨了~~
-              出來曬曬太陽☀️🌈`,
+    caption: `I love sunny day☀️🌈`,
     image: chrome.runtime.getURL("images/icon9.png"),
     comments: 2432
   },
     {
     username: "dog_on_a_trip",
-    caption: "今天又是萌力滿分的一天！ 🌟🐕",
+    caption: "Today is a great day 🌟🐕",
     image: chrome.runtime.getURL("images/icon10.png"),
     comments: 551
   },
   {
     username: "sasamo",
-    caption: "冬天要到了，給薩薩戴上帽子啦 ❄️🧣",
+    caption: "Winter is comming...❄️🧣",
     image: chrome.runtime.getURL("images/icon11.png"),
     comments: 14
   },
   {
     username: "abcd_eat",
-    caption: `不要叫醒我，我在做美夢 💤🌙`,
+    caption: `I love youuuu 💤🌙`,
     image: chrome.runtime.getURL("images/icon12.png"),
     comments: 2388
   },
   {
     username: "catty_love",
-    caption: "想吃零食了～ 🍪😂",
+    caption: "I am so hungry 🍪😂",
     image: chrome.runtime.getURL("images/icon13.png"),
     comments: 5603
   },
   {
     username: "ccccccat",
-    caption: "毛茸茸的擁抱，暖暖你的心 🐾💛",
+    caption: "happy happp happy 🐾💛",
     image: chrome.runtime.getURL("images/icon14.png"),
     comments: 31
   },
   {
     username: "golden_yen",
-    caption: `笑一笑，金燕又是美好的一天 😄🐶`,
+    caption: `let's smile 😄🐶`,
     image: chrome.runtime.getURL("images/icon15.png"),
     comments: 1263
   },
   {
     username: "relax_cat",
-    caption: "不想上班啦～帶我去旅行吧！ ✈️🐾",
+    caption: "Taking a trip ✈️🐾",
     image: chrome.runtime.getURL("images/icon16.png"),
     comments: 750
   },
   {
     username: "loveyouuuu",
-    caption: "送你一朵小花花 🌸 你是世界上最棒的人",
+    caption: "Wish ypu good lock 🌸",
     image: chrome.runtime.getURL("images/icon17.png"),
     comments: 132
   },
   {
     username: "golden_yen",
-    caption: `周末吃太胖啦！要開始減肥計畫了 🥗🏃‍♂️`,
+    caption: `I am so fat 🥗🏃‍♂️`,
     image: chrome.runtime.getURL("images/icon18.png"),
     comments: 423
   },
     {
     username: "dogstagram",
-    caption: "今天也要元氣滿滿喔！ 💪",
+    caption: "You are the best one in the world 💪",
     image: chrome.runtime.getURL("images/icon19.png"),
     comments: 250
   },
@@ -561,20 +558,20 @@ function createFakePost({ username, caption, image, comments }) {
     <img src="${image}" style="width: 100%; display: block;">
     <div style="display: flex; justify-content: space-between; padding: 0 10px;">
       <div style="display: flex; gap: 12px; align-items: center;">
-        <svg aria-label="讚" class="like-btn" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
+        <svg aria-label="liked" class="like-btn" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
           <path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.763 1.12 1.763s.278-.588 1.11-1.766a4.17 4.17 0 0 1 3.679-1.938m0-2a6.04 6.04 0 0 0-4.797 2.127 6.052 6.052 0 0 0-4.787-2.127A6.985 6.985 0 0 0 .5 9.122c0 3.61 2.55 5.827 5.015 7.97.283.246.569.494.853.747l1.027.918a44.998 44.998 0 0 0 3.518 3.018 2 2 0 0 0 2.174 0 45.263 45.263 0 0 0 3.626-3.115l.922-.824c.293-.26.59-.519.885-.774 2.334-2.025 4.98-4.32 4.98-7.94a6.985 6.985 0 0 0-6.708-7.218Z"></path>
         </svg>
-        <svg aria-label="留言" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
+        <svg aria-label="comment" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
             <path d="M20.656 17.008a9.993 9.993 0 1 0-3.59 3.615L22 22Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></path>
         </svg>
         <p><strong>${comments}</strong></p>
-        <svg aria-label="分享" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
+        <svg aria-label="share" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
           <line fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2" x1="22" x2="9.218" y1="3" y2="10.083"></line>
           <polygon fill="none" points="11.698 20.334 22 3.001 2 3.001 9.218 10.084 11.698 20.334" stroke="currentColor" stroke-linejoin="round" stroke-width="2"></polygon>
         </svg>
       </div>
       <div style="display: flex; align-items: center;">
-        <svg aria-label="儲存" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
+        <svg aria-label="save" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
           <polygon fill="none" points="20 21 12 13.44 4 21 4 3 20 3 20 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></polygon>
         </svg>
       </div>
@@ -592,13 +589,13 @@ function setupLikeButton(post) {
     let liked = false;
 
     const svgBefore = `
-      <svg aria-label="讚" class="x1lliihq x1n2onr6 xyb1xck" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
+      <svg aria-label="liked" class="x1lliihq x1n2onr6 xyb1xck" fill="currentColor" height="24" role="img" viewBox="0 0 24 24" width="24">
         <path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.763 1.12 1.763s.278-.588 1.11-1.766a4.17 4.17 0 0 1 3.679-1.938m0-2a6.04 6.04 0 0 0-4.797 2.127 6.052 6.052 0 0 0-4.787-2.127A6.985 6.985 0 0 0 .5 9.122c0 3.61 2.55 5.827 5.015 7.97.283.246.569.494.853.747l1.027.918a44.998 44.998 0 0 0 3.518 3.018 2 2 0 0 0 2.174 0 45.263 45.263 0 0 0 3.626-3.115l.922-.824c.293-.26.59-.519.885-.774 2.334-2.025 4.98-4.32 4.98-7.94a6.985 6.985 0 0 0-6.708-7.218Z"></path>
       </svg>
     `;
 
     const svgAfter = `
-      <svg aria-label="收回讚" class="x1lliihq x1n2onr6 xxk16z8" fill="currentColor" height="24" role="img" viewBox="0 0 48 48" width="24">
+      <svg aria-label="disliked" class="x1lliihq x1n2onr6 xxk16z8" fill="currentColor" height="24" role="img" viewBox="0 0 48 48" width="24">
         <path d="M34.6 3.1c-4.5 0-7.9 1.8-10.6 5.6-2.7-3.7-6.1-5.5-10.6-5.5C6 3.1 0 9.6 0 17.6c0 7.3 5.4 12 10.6 16.5.6.5 1.3 1.1 1.9 1.7l2.3 2c4.4 3.9 6.6 5.9 7.6 6.5.5.3 1.1.5 1.6.5s1.1-.2 1.6-.5c1-.6 2.8-2.2 7.8-6.8l2-1.8c.7-.6 1.3-1.2 2-1.7C42.7 29.6 48 25 48 17.6c0-8-6-14.5-13.4-14.5z"></path>
       </svg>
     `;
@@ -625,14 +622,14 @@ function insertAfter(newNode, referenceNode) {
 function insertFakePost() {
   isInsertingFakePost = true;
 
-  // 檢查現有假貼文數量
+  // number of fake post
   const existingFakePosts = document.querySelectorAll('[data-fake-post="true"]');
-  console.log(`目前假貼文數量: ${existingFakePosts.length}`);
+  console.log(`current number of fake post: ${existingFakePosts.length}`);
   
-  // 如果已有 3 張，刪除最舊的（第一張）
+  // If there are already three images, delete the oldest one (the first image).
   if (existingFakePosts.length >= 3) {
     const oldestPost = existingFakePosts[0];
-    console.log('刪除最舊的假貼文');
+    console.log('delete oldest fake post');
     oldestPost.remove();
   }
   
@@ -653,7 +650,7 @@ function insertFakePost() {
     }, null);
   
   if (!currentArticle || currentArticle.article.dataset.fakeInserted) {
-    console.log('沒有可插入的目標文章');
+    console.log('Can not insert any fake post');
     isInsertingFakePost = false;
     return;
   }
@@ -665,7 +662,7 @@ function insertFakePost() {
   setupLikeButton(post);
   currentArticle.article.dataset.fakeInserted = 'true';
   post.dataset.fakePost = 'true';
-  console.log('已插入一則假貼文');
+  console.log('Insert fake post');
   
   setTimeout(() => {
     isInsertingFakePost = false;
