@@ -3,6 +3,8 @@
 This project integrates a **Chrome Extension**, a **FastAPI backend**, and the **CLIP model** to analyze images from Instagram. 
 The analysis detects potentially body-image–related content, and the system can activate an **intervention mechanism** to provide positive engagement and help mitigate negative effects.
 
+**(Note on Authorship): This repository is a derivative copy of the original team project. The code represents the combined efforts of the development team. My primary contributions focused on developing post intervention.**
+
 ## 🚀 Getting Started
 
 ### Install uv
@@ -39,6 +41,6 @@ Swagger Docs: http://localhost:8000/docs
 ### Load the Chrome Extension
 1. Open Chrome → `chrome://extensions/`
 2. Enable **Developer Mode**
-3. Click **Load unpacked** and select the extension folder (photoviewer).
+3. Click **Load unpacked** and select the extension folder (post_extention).
 4. Open Instagram and start scrolling → the floating window will show detected image URLs.
 5. URLs are sent to the backend for CLIP analysis and may trigger intervention mechanisms [TODO].
